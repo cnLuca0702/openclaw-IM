@@ -2,56 +2,70 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { openClawService } from '../services/openClawService';
 import { fileService } from '../services/fileService';
-import { replyService } from '../services/replyService';
-import '../styles/App.css';
+import { Paperclip, Bot, FileText, Activity } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
-const ChatWindow: React.FC = () => {
+interface ChatWindowProps {
+  isDark: boolean;
+  onShowTemplates: () => void;
+  pendingTemplateContent?: string;
+  onClearPendingTemplate?: () => void;
+  gatewayInfo?: {
+    ok: boolean;
+    version: string;
+    uptimeMs: number;
+    sessionCount: number;
+  };
+}
+
+const ChatWindow: React.FC<ChatWindowProps> = ({ onShowTemplates, pendingTemplateContent, onClearPendingTemplate, gatewayInfo }) => {
   const {
     activeConnectionId,
     activeSessionId,
     messages,
+    sessions,
     addMessage,
   } = useAppStore();
 
   const [inputText, setInputText] = useState('');
-  const [showAISuggestions, setShowAISuggestions] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
-  const [templates, setTemplates] = useState<any[]>([]);
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const sessionMessages = activeSessionId
-    ? messages[activeSessionId] || []
-    : [];
+  // Consume pending template content
+  useEffect(() => {
+    if (pendingTemplateContent) {
+      setInputText(pendingTemplateContent);
+      onClearPendingTemplate?.();
+      setTimeout(() => textareaRef.current?.focus(), 100);
+    }
+  }, [pendingTemplateContent]);
+
+  const currentSessionId = activeSessionId || '';
+  const sessionMessages = activeSessionId ? messages[activeSessionId] || [] : [];
+  const activeSession = sessions.find(s => s.id === activeSessionId);
+  const sessionName = activeSession?.name || '请选择会话';
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [sessionMessages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   const handleSendMessage = async () => {
-    if (!inputText.trim() || !activeConnectionId || !activeSessionId || isSending) {
-      return;
-    }
+    if (!inputText.trim() || isSending || !currentSessionId) return;
 
-    setIsSending(true);
-    try {
-      const message = await openClawService.sendMessage(
-        activeConnectionId,
-        activeSessionId,
-        inputText
-      );
-      addMessage(activeSessionId, message);
-      setInputText('');
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      alert('发送失败，请重试');
-    } finally {
-      setIsSending(false);
+    if (activeConnectionId && activeSessionId) {
+      // WebSocket 模式
+      setIsSending(true);
+      try {
+        const message = await openClawService.sendMessage(activeConnectionId, activeSessionId, inputText);
+        addMessage(activeSessionId, message);
+        setInputText('');
+      } catch (error) {
+        console.error('Failed to send message:', error);
+      } finally {
+        setIsSending(false);
+      }
     }
   };
 
@@ -63,219 +77,220 @@ const ChatWindow: React.FC = () => {
   };
 
   const handleFileSelect = async () => {
-    if (!activeConnectionId || !activeSessionId) {
-      return;
-    }
-
+    if (!activeConnectionId || !activeSessionId) return;
     try {
       const filePaths = await fileService.selectFiles();
       if (filePaths.length > 0) {
         for (const filePath of filePaths) {
-          await fileService.uploadFile(
-            activeConnectionId,
-            activeSessionId,
-            filePath,
-            (progress) => {
-              console.log(`Upload progress: ${progress}%`);
-            }
-          );
+          await fileService.uploadFile(activeConnectionId, activeSessionId, filePath, () => { });
         }
-        alert(`成功上传 ${filePaths.length} 个文件`);
       }
     } catch (error) {
       console.error('File upload failed:', error);
-      alert('文件上传失败');
     }
   };
 
-  const handleGetAISuggestions = async () => {
-    if (!activeSessionId) return;
+  const storeMessages = sessionMessages.length > 0
+    ? sessionMessages.map(msg => ({
+      id: msg.id, sender: msg.sender.name,
+      time: new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      text: msg.content, isMe: msg.sender.id === 'me',
+    }))
+    : [];
 
-    try {
-      const suggestions = await replyService.generateReplySuggestions({
-        sessionId: activeSessionId,
-        lastMessages: sessionMessages.slice(-10),
-      });
-      setAiSuggestions(suggestions);
-      setShowAISuggestions(true);
-    } catch (error) {
-      console.error('Failed to get AI suggestions:', error);
-    }
+  // 显示当前 session 的消息
+  const displayMessages = storeMessages;
+  // 格式化运行时间
+  const formatUptime = (ms: number): string => {
+    const totalSec = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSec / 3600);
+    const minutes = Math.floor((totalSec % 3600) / 60);
+    if (hours > 0) return `${hours}小时${minutes}分`;
+    return `${minutes}分钟`;
   };
-
-  const handleShowTemplates = async () => {
-    try {
-      const allTemplates = await replyService.getTemplates();
-      setTemplates(allTemplates);
-      setShowTemplates(true);
-    } catch (error) {
-      console.error('Failed to load templates:', error);
-    }
-  };
-
-  const handleUseSuggestion = (suggestion: any) => {
-    setInputText(suggestion.content);
-    setShowAISuggestions(false);
-  };
-
-  const handleUseTemplate = (template: any) => {
-    setInputText(template.content);
-    setShowTemplates(false);
-  };
-
-  if (!activeSessionId) {
-    return (
-      <div className="chat-window">
-        <div className="empty-state">
-          <div className="empty-state-icon">💬</div>
-          <div className="empty-state-text">选择一个会话开始聊天</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="chat-window">
-      <div className="chat-header">
-        <div className="chat-header-title">
-          {useAppStore.getState().sessions.find(s => s.id === activeSessionId)?.name || '聊天'}
+    <div className="flex-1 flex flex-col min-w-0" style={{ background: 'var(--bg-main)' }}>
+      {/* ── HEADER ─── */}
+      <div style={{
+        height: 64,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 28px',
+        borderBottom: '1px solid var(--border-color)',
+        flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{
+            fontSize: 18,
+            fontWeight: 700,
+            color: 'var(--text-primary)',
+          }}>
+            {sessionName}
+          </span>
         </div>
-        <div className="flex gap-2">
-          <button
-            className="btn btn-ghost"
-            onClick={handleGetAISuggestions}
-            title="AI辅助回复"
-          >
-            🤖
-          </button>
-          <button
-            className="btn btn-ghost"
-            onClick={handleShowTemplates}
-            title="模板回复"
-          >
-            📝
-          </button>
-        </div>
+        {/* Gateway 状态显示 */}
+        {gatewayInfo && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12, color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Activity size={14} strokeWidth={1.5} style={{ color: gatewayInfo.ok ? '#22c55e' : '#ef4444' }} />
+              <span style={{ color: gatewayInfo.ok ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
+                {gatewayInfo.ok ? '正常' : '异常'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ color: 'var(--text-light)' }}>运行:</span>
+              <span style={{ fontFamily: 'monospace' }}>{formatUptime(gatewayInfo.uptimeMs)}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ color: 'var(--text-light)' }}>会话:</span>
+              <span style={{ fontFamily: 'monospace' }}>{gatewayInfo.sessionCount}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ color: 'var(--text-light)' }}>v</span>
+              <span style={{ fontFamily: 'monospace' }}>{gatewayInfo.version}</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="chat-messages">
-        {sessionMessages.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-text">开始新的对话</div>
-          </div>
-        ) : (
-          sessionMessages.map((message) => (
-            <div
-              key={message.id}
-              className={`message ${message.sender.id === 'me' ? 'sent' : ''}`}
-            >
-              <div>
-                {message.sender.id !== 'me' && (
-                  <div className="message-sender">{message.sender.name}</div>
-                )}
-                <div className="message-bubble">{message.content}</div>
-                <div className="message-time">
-                  {new Date(message.timestamp).toLocaleTimeString('zh-CN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+      {/* ── MESSAGES ─── */}
+      <div className="flex-1 overflow-y-auto" style={{ padding: '24px 28px' }}>
+        <div style={{ maxWidth: '100%', margin: '0 auto' }}>
+          {displayMessages.map(msg => (
+            <div key={msg.id} style={{ marginBottom: 28 }}>
+              {/* sender + time */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: msg.isMe ? 'flex-end' : 'flex-start',
+                marginBottom: 8,
+              }}>
+                <span style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                }}>
+                  {msg.sender}
+                </span>
+                <span style={{
+                  fontSize: 12,
+                  color: 'var(--text-light)',
+                  marginLeft: 10,
+                }}>
+                  {msg.time}
+                </span>
+              </div>
+              {/* bubble */}
+              <div style={{ display: 'flex', justifyContent: msg.isMe ? 'flex-end' : 'flex-start' }}>
+                <div className="prose prose-sm max-w-none" style={{
+                  padding: '12px 18px',
+                  fontSize: 15,
+                  lineHeight: 1.65,
+                  borderRadius: 12,
+                  wordBreak: 'break-word',
+                  ...(msg.isMe ? {
+                    background: 'var(--accent)',
+                    color: '#ffffff',
+                  } : {
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-color)',
+                  }),
+                }}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ node, ...props }) => <p style={{ margin: '0 0 0.5em 0' }} {...props} />,
+                      a: ({ node, ...props }) => <a style={{ color: msg.isMe ? '#fff' : 'var(--accent)', textDecoration: 'underline' }} target="_blank" {...props} />,
+                      code: ({ node, inline, ...props }: any) => (
+                        inline
+                          ? <code style={{ background: 'rgba(128,128,128,0.2)', padding: '2px 4px', borderRadius: 4, fontFamily: 'monospace', fontSize: '0.9em' }} {...props} />
+                          : <pre style={{ background: 'var(--bg-hover)', padding: '12px', borderRadius: 8, overflowX: 'auto', margin: '0.5em 0' }}><code {...props} /></pre>
+                      )
+                    }}
+                  >
+                    {msg.text}
+                  </ReactMarkdown>
                 </div>
               </div>
             </div>
-          ))
-        )}
-        <div ref={messagesEndRef} />
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
-      <div className="message-input-area">
-        <button
-          className="btn btn-ghost"
-          onClick={handleFileSelect}
-          title="上传文件"
-        >
-          📎
-        </button>
-        <textarea
-          className="message-input"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="输入消息... (Enter发送，Shift+Enter换行)"
-          rows={1}
-        />
-        <button
-          className="send-btn"
-          onClick={handleSendMessage}
-          disabled={!inputText.trim() || isSending}
-          title="发送"
-        >
-          ➤
-        </button>
-      </div>
-
-      {showAISuggestions && aiSuggestions.length > 0 && (
-        <div className="dialog-overlay" onClick={() => setShowAISuggestions(false)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()}>
-            <div className="dialog-header">
-              <div className="dialog-title">AI回复建议</div>
-              <button
-                className="dialog-close"
-                onClick={() => setShowAISuggestions(false)}
-              >
-                ×
-              </button>
+      {/* ── INPUT AREA ─── */}
+      <div style={{ padding: '12px 28px 24px' }}>
+        <div style={{ maxWidth: '100%', margin: '0 auto' }}>
+          <div style={{
+            border: '1.5px solid var(--accent)',
+            borderRadius: 12,
+            background: 'var(--bg-input-box)',
+            overflow: 'hidden',
+          }}>
+            {/* toolbar row */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '8px 14px',
+              borderBottom: '1px solid var(--border-light)',
+            }}>
+              <ToolBtn onClick={handleFileSelect}><Paperclip size={18} strokeWidth={1.5} /></ToolBtn>
+              <ToolBtn onClick={() => { }}><Bot size={18} strokeWidth={1.5} /></ToolBtn>
+              <ToolBtn onClick={onShowTemplates}><FileText size={18} strokeWidth={1.5} /></ToolBtn>
             </div>
-            <div className="dialog-body">
-              {aiSuggestions.map((suggestion, index) => (
-                <div
-                  key={index}
-                  className="session-item"
-                  onClick={() => handleUseSuggestion(suggestion)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div>{suggestion.content}</div>
-                  {suggestion.reason && (
-                    <div className="text-secondary" style={{ fontSize: '0.75rem' }}>
-                      {suggestion.reason}
-                    </div>
-                  )}
-                </div>
-              ))}
+            {/* textarea row */}
+            <div style={{ padding: '10px 16px' }}>
+              <textarea
+                ref={textareaRef}
+                className="w-full resize-none outline-none"
+                style={{
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  color: 'var(--text-primary)',
+                  background: 'transparent',
+                  border: 'none',
+                  minHeight: 24,
+                  maxHeight: 120,
+                }}
+                placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
+                value={inputText}
+                onChange={e => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+              />
             </div>
           </div>
         </div>
-      )}
-
-      {showTemplates && templates.length > 0 && (
-        <div className="dialog-overlay" onClick={() => setShowTemplates(false)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()}>
-            <div className="dialog-header">
-              <div className="dialog-title">模板回复</div>
-              <button
-                className="dialog-close"
-                onClick={() => setShowTemplates(false)}
-              >
-                ×
-              </button>
-            </div>
-            <div className="dialog-body">
-              {templates.map((template) => (
-                <div
-                  key={template.id}
-                  className="session-item"
-                  onClick={() => handleUseTemplate(template)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className="session-name">{template.name}</div>
-                  <div className="session-preview">{template.content}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 };
+
+const ToolBtn: React.FC<{ children: React.ReactNode; onClick: () => void }> = ({ children, onClick }) => (
+  <button
+    onClick={onClick}
+    style={{
+      width: 32,
+      height: 32,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 6,
+      border: 'none',
+      background: 'transparent',
+      color: 'var(--text-muted)',
+      cursor: 'pointer',
+      transition: 'color 0.15s',
+    }}
+    onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; }}
+    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+  >
+    {children}
+  </button>
+);
 
 export default ChatWindow;

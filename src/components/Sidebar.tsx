@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../stores/appStore';
-import '../styles/App.css';
+import { Plus, FileText, Moon, Sun, Settings } from 'lucide-react';
 
 interface SidebarProps {
   onAddConnection: () => void;
@@ -13,55 +13,104 @@ const Sidebar: React.FC<SidebarProps> = ({
   onManageTemplates,
   onOpenSettings,
 }) => {
-  const { theme, toggleSidebar, sidebarCollapsed } = useAppStore();
+  const { theme } = useAppStore();
+  const isDark = theme === 'dark';
 
   const handleThemeToggle = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    useAppStore.getState().setTheme(newTheme);
+    useAppStore.getState().setTheme(isDark ? 'light' : 'dark');
   };
 
-  if (sidebarCollapsed) {
-    return (
-      <div className="sidebar">
-        <div
-          className="sidebar-icon"
-          onClick={() => toggleSidebar()}
-          title="展开"
-        >
-          ➤
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="sidebar">
-      <div className="sidebar-icon" onClick={onAddConnection} title="添加连接">
-        +
-      </div>
-      <div className="sidebar-icon" onClick={onManageTemplates} title="模板管理">
-        📝
-      </div>
-      <div
-        className="sidebar-icon"
-        onClick={handleThemeToggle}
-        title={theme === 'light' ? '切换到深色模式' : '切换到浅色模式'}
+    <div
+      className="flex flex-col items-center pb-5 shrink-0"
+      style={{
+        width: 60,
+        paddingTop: 16,
+        background: 'var(--bg-sidebar)',
+        borderRight: '1px solid var(--border-color)',
+      }}
+    >
+      {/* + button */}
+      <button
+        onClick={onAddConnection}
+        style={{
+          width: 38,
+          height: 38,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: 10,
+          border: 'none',
+          background: 'var(--accent)',
+          color: '#ffffff',
+          cursor: 'pointer',
+          fontSize: 20,
+          transition: 'opacity 0.15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
+        onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
       >
-        {theme === 'light' ? '🌙' : '☀️'}
-      </div>
-      <div className="sidebar-icon" onClick={onOpenSettings} title="设置">
-        ⚙️
-      </div>
-      <div style={{ flex: 1 }} />
-      <div
-        className="sidebar-icon"
-        onClick={() => toggleSidebar()}
-        title="收起"
-      >
-        ◀
+        <Plus size={20} strokeWidth={2} />
+      </button>
+
+      {/* separator */}
+      <div style={{
+        width: 28,
+        height: 1,
+        background: 'var(--border-color)',
+        margin: '16px 0',
+      }} />
+
+      {/* template icon */}
+      <SidebarIcon onClick={onManageTemplates}>
+        <FileText size={20} strokeWidth={1.5} />
+      </SidebarIcon>
+
+      {/* spacer */}
+      <div className="flex-1" />
+
+      {/* theme toggle */}
+      <SidebarIcon onClick={handleThemeToggle}>
+        {isDark ? <Sun size={20} strokeWidth={1.5} /> : <Moon size={20} strokeWidth={1.5} />}
+      </SidebarIcon>
+
+      {/* settings */}
+      <div style={{ marginTop: 8 }}>
+        <SidebarIcon onClick={onOpenSettings}>
+          <Settings size={20} strokeWidth={1.5} />
+        </SidebarIcon>
       </div>
     </div>
   );
 };
+
+const SidebarIcon: React.FC<{ children: React.ReactNode; onClick: () => void }> = ({ children, onClick }) => (
+  <button
+    onClick={onClick}
+    style={{
+      width: 38,
+      height: 38,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 10,
+      border: 'none',
+      background: 'transparent',
+      color: 'var(--text-muted)',
+      cursor: 'pointer',
+      transition: 'background 0.15s, color 0.15s',
+    }}
+    onMouseEnter={e => {
+      e.currentTarget.style.background = 'var(--bg-hover)';
+      e.currentTarget.style.color = 'var(--text-secondary)';
+    }}
+    onMouseLeave={e => {
+      e.currentTarget.style.background = 'transparent';
+      e.currentTarget.style.color = 'var(--text-muted)';
+    }}
+  >
+    {children}
+  </button>
+);
 
 export default Sidebar;

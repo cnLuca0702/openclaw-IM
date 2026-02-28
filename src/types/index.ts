@@ -3,7 +3,7 @@ export interface OpenClawConfig {
   name: string;
   apiKey: string;
   endpoint: string;
-  protocol: 'rest' | 'websocket' | 'custom';
+  protocol: 'websocket' | 'custom';
   customConfig?: Record<string, any>;
 }
 
@@ -20,6 +20,7 @@ export interface Session {
   id: string;
   connectionId: string;
   name: string;
+  sessionKey?: string; // gateway session key, e.g. "agent:main:main"
   type: 'individual' | 'group' | 'channel';
   participants?: string[];
   unreadCount: number;

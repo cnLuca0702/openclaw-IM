@@ -6,6 +6,27 @@ import { ReplyTemplate, AIReplyContext, AIReplySuggestion, Message } from '../ty
  */
 export class ReplyService {
   private templates: ReplyTemplate[] = [];
+  private static STORAGE_KEY = 'openclaw_templates';
+
+  private static DEFAULT_TEMPLATES: ReplyTemplate[] = [
+    { id: '1', name: '问候语', content: '您好，有什么可以帮您的？', category: '客服', tags: ['#客服', '#常用'], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: '2', name: '确认收到', content: '收到，我会尽快处理。', category: '确认', tags: ['#确认'], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: '3', name: '故障排查', content: '请提供以下信息：\n1. 错误日志截图\n2. 发生时间\n3. 影响范围', category: '运维', tags: ['#运维'], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  ];
+
+  private loadFromStorage(): ReplyTemplate[] {
+    try {
+      const stored = localStorage.getItem(ReplyService.STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch (e) { /* ignore */ }
+    return [];
+  }
+
+  private saveToStorage(): void {
+    try {
+      localStorage.setItem(ReplyService.STORAGE_KEY, JSON.stringify(this.templates));
+    } catch (e) { /* ignore */ }
+  }
 
   /**
    * Get all templates
@@ -13,6 +34,12 @@ export class ReplyService {
   async getTemplates(): Promise<ReplyTemplate[]> {
     if ((window as any).electronAPI) {
       this.templates = await (window as any).electronAPI.templates.get();
+    } else {
+      this.templates = this.loadFromStorage();
+      if (this.templates.length === 0) {
+        this.templates = [...ReplyService.DEFAULT_TEMPLATES];
+        this.saveToStorage();
+      }
     }
     return this.templates;
   }
@@ -26,7 +53,16 @@ export class ReplyService {
       this.templates.push(result);
       return result;
     }
-    throw new Error('Electron API not available');
+    const now = new Date().toISOString();
+    const newTemplate: ReplyTemplate = {
+      ...template,
+      id: Date.now().toString(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.templates.push(newTemplate);
+    this.saveToStorage();
+    return newTemplate;
   }
 
   /**
@@ -35,8 +71,9 @@ export class ReplyService {
   async deleteTemplate(templateId: string): Promise<void> {
     if ((window as any).electronAPI) {
       await (window as any).electronAPI.templates.delete(templateId);
-      this.templates = this.templates.filter((t) => t.id !== templateId);
     }
+    this.templates = this.templates.filter((t) => t.id !== templateId);
+    this.saveToStorage();
   }
 
   /**
