@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { openClawService } from '../services/openClawService';
 import { fileService } from '../services/fileService';
-import { Paperclip, Bot, FileText, Activity } from 'lucide-react';
+import { Paperclip, Bot, FileText, Activity, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -243,7 +243,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onShowTemplates, pendingTemplat
               <ToolBtn onClick={onShowTemplates}><FileText size={18} strokeWidth={1.5} /></ToolBtn>
             </div>
             {/* textarea row */}
-            <div style={{ padding: '10px 16px' }}>
+            <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
               <textarea
                 ref={textareaRef}
                 className="w-full resize-none outline-none"
@@ -255,6 +255,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onShowTemplates, pendingTemplat
                   border: 'none',
                   minHeight: 24,
                   maxHeight: 120,
+                  flex: 1,
                 }}
                 placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
                 value={inputText}
@@ -262,6 +263,37 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onShowTemplates, pendingTemplat
                 onKeyDown={handleKeyDown}
                 rows={1}
               />
+              <button
+                onClick={handleSendMessage}
+                disabled={!inputText.trim() || isSending}
+                style={{
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: (!inputText.trim() || isSending) ? 'var(--bg-hover)' : 'var(--accent)',
+                  color: (!inputText.trim() || isSending) ? 'var(--text-muted)' : '#ffffff',
+                  cursor: (!inputText.trim() || isSending) ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s',
+                  flexShrink: 0,
+                  marginBottom: 2,
+                }}
+                onMouseEnter={e => {
+                  if (inputText.trim() && !isSending) {
+                    e.currentTarget.style.opacity = '0.85';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (inputText.trim() && !isSending) {
+                    e.currentTarget.style.opacity = '1';
+                  }
+                }}
+              >
+                <Send size={16} strokeWidth={2} style={{ marginLeft: -2, marginTop: 1 }} />
+              </button>
             </div>
           </div>
         </div>
