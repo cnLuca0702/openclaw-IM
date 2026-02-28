@@ -15,8 +15,8 @@ const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ onClose, onSave }) 
   const [connName, setConnName] = useState('OpenClaw Bot');
 
   // WebSocket 对应的状态
-  const [wsEndpoint, setWsEndpoint] = useState('ws://180.76.133.26:18789');
-  const [wsToken, setWsToken] = useState('rmho1f9w8otauiapvczmjyu359cvd06x5izp4drr73bwm81u');
+  const [wsEndpoint, setWsEndpoint] = useState('ws://8.153.174.191:18789');
+  const [wsToken, setWsToken] = useState('ecb934d4613dd25ca37be5cce9c86df00fe64659b886c42c');
 
   const handleSubmit = () => {
     if (!connName.trim() || !wsToken.trim()) {
@@ -146,7 +146,7 @@ const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ onClose, onSave }) 
                 onBlur={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; }}
               />
               <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-                例如：ws://180.76.133.26:18789
+                例如：ws://8.153.174.191:18789
               </p>
             </div>
 
