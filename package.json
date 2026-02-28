@@ -70,7 +70,7 @@
         "nsis",
         "portable"
       ],
-      "icon": "build/icon.ico",
+      "icon": "build/icon.png",
       "signingHashAlgorithms": []
     },
     "mac": {
@@ -78,7 +78,7 @@
         "dmg",
         "zip"
       ],
-      "icon": "build/icon.icns",
+      "icon": "build/icon.png",
       "category": "public.app-category.social-networking"
     },
     "nsis": {
