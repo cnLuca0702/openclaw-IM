@@ -58,7 +58,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ onShowTemplates, pendingTemplat
       // WebSocket 模式
       setIsSending(true);
       try {
-        const message = await openClawService.sendMessage(activeConnectionId, activeSessionId, inputText);
+        const message = await openClawService.sendMessage(activeConnectionId, activeSessionId, inputText, undefined, activeSession?.sessionKey);
         addMessage(activeSessionId, message);
         setInputText('');
       } catch (error) {

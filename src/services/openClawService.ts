@@ -163,7 +163,8 @@ export class OpenClawService {
     connectionId: string,
     sessionId: string,
     content: string,
-    attachments?: any[]
+    attachments?: any[],
+    sessionKey?: string
   ): Promise<Message> {
     const connection = this.connections.get(connectionId);
     const ws = this.webSockets.get(connectionId);
@@ -197,7 +198,7 @@ export class OpenClawService {
         type: 'event',
         event: 'message.send',
         payload: {
-          sessionId,
+          sessionId: sessionKey || sessionId,
           content,
           attachments,
           messageId: message.id,
