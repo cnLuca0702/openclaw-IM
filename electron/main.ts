@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import Store from 'electron-store';
 
+app.name = 'OpenCalw IM';
+
 const store = new Store();
 let mainWindow: BrowserWindow | null = null;
 
@@ -11,6 +13,7 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    icon: path.join(__dirname, '../../build/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -33,6 +36,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin' && !app.isPackaged) {
+    app.dock.setIcon(path.join(__dirname, '../../build/icon.png'));
+  }
+
   createWindow();
 
   app.on('activate', () => {

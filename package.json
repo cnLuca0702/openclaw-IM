@@ -57,7 +57,7 @@
   },
   "build": {
     "appId": "com.openclaw.im",
-    "productName": "OpenClaw IM",
+    "productName": "OpenCalw IM",
     "directories": {
       "output": "release"
     },
