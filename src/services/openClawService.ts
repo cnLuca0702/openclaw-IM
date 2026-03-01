@@ -193,16 +193,16 @@ export class OpenClawService {
     };
 
     try {
-      // 使用event/payload格式发送消息
+      // 使用 RPC 格式发送消息
       ws.send(JSON.stringify({
-        type: 'event',
-        event: 'message.send',
-        payload: {
-          sessionId: sessionKey || sessionId,
-          content,
-          attachments,
-          messageId: message.id,
-        },
+        type: 'req',
+        id: message.id,
+        method: 'chat.send',
+        params: {
+          sessionKey: sessionKey || sessionId,
+          idempotencyKey: message.id,
+          message: content
+        }
       }));
 
       message.status = 'sent';
